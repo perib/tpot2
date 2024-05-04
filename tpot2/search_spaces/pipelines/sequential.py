@@ -12,10 +12,11 @@ class SequentialPipelineIndividual(SklearnIndividual):
     # takes in a list of search spaces. each space is a list of SklearnIndividualGenerators.
     # will produce a pipeline of Sequential length. Each step in the pipeline will correspond to the the search space provided in the same index.
 
-    def __init__(self, search_spaces : List[SklearnIndividualGenerator], rng=None) -> None:
+    def __init__(self, search_spaces : List[SklearnIndividualGenerator], more_mutate=False, rng=None) -> None:
         super().__init__()
         self.search_spaces = search_spaces
         self.pipeline = []
+        self.more_mutate = more_mutate
 
         for space in self.search_spaces:
             self.pipeline.append(space.generate(rng))
@@ -25,8 +26,18 @@ class SequentialPipelineIndividual(SklearnIndividual):
     
     def mutate(self, rng=None):
         rng = np.random.default_rng()
-        step = rng.choice(self.pipeline)
-        return step.mutate(rng)
+        if self.more_mutate:
+            mutated = False
+            for step in self.pipeline:
+                if rng.random() < 0.5:
+                    if step.mutate(rng):
+                        mutated = True
+            return mutated
+
+        else:
+            
+            step = rng.choice(self.pipeline)
+            return step.mutate(rng)
      
 
     def crossover(self, other, rng=None):
@@ -108,12 +119,13 @@ class SequentialPipelineIndividual(SklearnIndividual):
 
 
 class SequentialPipeline(SklearnIndividualGenerator):
-    def __init__(self, search_spaces : List[SklearnIndividualGenerator] ) -> None:
+    def __init__(self, search_spaces : List[SklearnIndividualGenerator], more_mutate=False) -> None:
         """
         Takes in a list of search spaces. will produce a pipeline of Sequential length. Each step in the pipeline will correspond to the the search space provided in the same index.
         """
         
         self.search_spaces = search_spaces
+        self.more_mutate = more_mutate
 
     def generate(self, rng=None):
-        return SequentialPipelineIndividual(self.search_spaces)
+        return SequentialPipelineIndividual(self.search_spaces, more_mutate=self.more_mutate, rng=rng)

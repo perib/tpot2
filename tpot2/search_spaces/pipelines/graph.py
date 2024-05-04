@@ -69,6 +69,8 @@ class GraphPipelineIndividual(SklearnIndividual):
             method: str = 'auto',
             memory=None,
             use_label_encoder: bool = False,
+            more_mutate=False,
+            more_cx=False,
             rng=None):
         
         super().__init__()
@@ -88,6 +90,9 @@ class GraphPipelineIndividual(SklearnIndividual):
         self.memory = memory
         self.use_label_encoder = use_label_encoder
 
+        self.more_mutate = more_mutate
+        self.more_cx = more_cx
+
         self.root = self.root_search_space.generate(rng)
         self.graph = nx.DiGraph()
         self.graph.add_node(self.root)
@@ -102,8 +107,8 @@ class GraphPipelineIndividual(SklearnIndividual):
             self.crossover_methods_list = [self._crossover_swap_branch,]#[self._crossover_swap_branch, self._crossover_swap_node, self._crossover_take_branch]  #TODO self._crossover_nodes, 
 
         else:
-            self.mutate_methods_list = [self._mutate_insert_leaf, self._mutate_insert_inner_node, self._mutate_remove_node, self._mutate_node]
-            self.crossover_methods_list = [self._crossover_swap_branch,]#[self._crossover_swap_branch, self._crossover_swap_node, self._crossover_take_branch]  #TODO self._crossover_nodes, 
+            self.mutate_methods_list = [self._mutate_insert_leaf, self._mutate_insert_inner_node, self._mutate_remove_node, self._mutate_node, self._mutate_insert_bypass_node]
+            self.crossover_methods_list = [self._crossover_swap_branch, self._crossover_nodes, self._crossover_take_branch ]#[self._crossover_swap_branch, self._crossover_swap_node, self._crossover_take_branch]  #TODO self._crossover_nodes, 
 
         self.merge_duplicated_nodes_toggle = True
 
@@ -243,14 +248,25 @@ class GraphPipelineIndividual(SklearnIndividual):
         '''
         Mutates the hyperparameters for a randomly chosen node in the graph.
         '''
-        rng = np.random.default_rng(rng)
-        sorted_nodes_list = list(self.graph.nodes)
-        rng.shuffle(sorted_nodes_list)
-        completed_one = False
-        for node in sorted_nodes_list:
-            if node.mutate(rng):
-                return True
-        return False
+        if self.more_mutate:
+            rng = np.random.default_rng(rng)
+            mutated = False
+            for node in self.graph.nodes:
+                if rng.random() < 0.5:
+                    if node.mutate(rng):
+                        mutated=True
+
+            return mutated
+
+        else:
+            rng = np.random.default_rng(rng)
+            sorted_nodes_list = list(self.graph.nodes)
+            rng.shuffle(sorted_nodes_list)
+            completed_one = False
+            for node in sorted_nodes_list:
+                if node.mutate(rng):
+                    return True
+            return False
 
     def _mutate_remove_edge(self, rng=None):
         '''
@@ -467,6 +483,8 @@ class GraphPipelineIndividual(SklearnIndividual):
         else:
             pair_gen = select_nodes_randomly(self.graph, G2.graph, rng=rng)
 
+        cross_successful = False
+
         for node1, node2 in pair_gen:
             
             #if both nodes are leaves
@@ -474,7 +492,9 @@ class GraphPipelineIndividual(SklearnIndividual):
                 
                 try:                
                     if node1.crossover(node2):
-                        return True
+                        cross_successful = True
+                        if not self.more_cx:
+                            return True
                 except:
                     pass
                 
@@ -482,15 +502,19 @@ class GraphPipelineIndividual(SklearnIndividual):
             if len(list(self.graph.successors(node1)))>0 and len(list(G2.graph.successors(node2)))>0:
                 if len(list(self.graph.predecessors(node1)))>0 and len(list(G2.graph.predecessors(node2))):
                     if node1.crossover(node2):
-                        return True
+                        cross_successful = True
+                        if not self.more_cx:
+                            return True
 
             #if both nodes are root nodes
             if node1 is self.root and node2 is G2.root:
                 if node1.crossover(node2):
-                    return True
+                    cross_successful = True
+                    if not self.more_cx:
+                        return True
 
 
-        return False
+        return cross_successful
 
     #not including the nodes, just their children
     #Finds leaves attached to nodes and swaps them
@@ -702,7 +726,10 @@ class GraphPipeline(SklearnIndividualGenerator):
         cross_val_predict_cv: Union[int, Callable] = 0, #signature function(estimator, X, y=none)
         method: str = 'auto',
         memory=None,
-        use_label_encoder: bool = False):
+        use_label_encoder: bool = False,
+        more_mutate=False,
+        more_cx=False,
+        ):
         
         """
         Defines a search space of pipelines in the shape of a Directed Acyclic Graphs. The search spaces for root, leaf, and inner nodes can be defined separately if desired.
@@ -757,10 +784,13 @@ class GraphPipeline(SklearnIndividualGenerator):
         self.memory = memory
         self.use_label_encoder = use_label_encoder
 
+        self.more_mutate = more_mutate
+        self.more_cx = more_cx
+
     def generate(self, rng=None):
         rng = np.random.default_rng(rng)
         ind =  GraphPipelineIndividual(self.root_search_space, self.leaf_search_space, self.inner_search_space, self.max_size, self.crossover_same_depth, 
-                                       self.cross_val_predict_cv, self.method, self.memory, self.use_label_encoder, rng=rng)  
+                                       self.cross_val_predict_cv, self.method, self.memory, self.use_label_encoder, more_mutate=self.more_mutate, more_cx=self.more_cx,  rng=rng)  
             # if user specified limit, grab a random number between that limit
         
         if self.max_size is None or self.max_size == np.inf:
