@@ -23,7 +23,7 @@ class SequentialPipelineIndividual(SklearnIndividual):
 
         self.pipeline = np.array(self.pipeline)
         
-    
+    #TODO, mutate all steps or just one?
     def mutate(self, rng=None):
         rng = np.random.default_rng()
         if self.more_mutate:
@@ -40,7 +40,7 @@ class SequentialPipelineIndividual(SklearnIndividual):
             return step.mutate(rng)
      
 
-    def crossover(self, other, rng=None):
+    def _crossover(self, other, rng=None):
         #swap a random step in the pipeline with the corresponding step in the other pipeline
         if len(self.pipeline) != len(other.pipeline):
             return False

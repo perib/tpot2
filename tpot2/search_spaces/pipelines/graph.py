@@ -339,7 +339,7 @@ class GraphPipelineIndividual(SklearnIndividual):
         return False
 
 
-    def crossover(self, ind2, rng=None):
+    def _crossover(self, ind2, rng=None):
         '''
         self is the first individual, ind2 is the second individual
         If crossover_same_depth, it will select graphindividuals at the same recursive depth.
