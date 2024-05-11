@@ -12,11 +12,12 @@ class SequentialPipelineIndividual(SklearnIndividual):
     # takes in a list of search spaces. each space is a list of SklearnIndividualGenerators.
     # will produce a pipeline of Sequential length. Each step in the pipeline will correspond to the the search space provided in the same index.
 
-    def __init__(self, search_spaces : List[SklearnIndividualGenerator], more_mutate=False, rng=None) -> None:
+    def __init__(self, search_spaces : List[SklearnIndividualGenerator], more_mutate=False, more_cx=False, rng=None) -> None:
         super().__init__()
         self.search_spaces = search_spaces
         self.pipeline = []
         self.more_mutate = more_mutate
+        self.more_cx = more_cx
 
         for space in self.search_spaces:
             self.pipeline.append(space.generate(rng))
@@ -101,13 +102,23 @@ class SequentialPipelineIndividual(SklearnIndividual):
     def _crossover_inner_step(self, other, rng):
         rng = np.random.default_rng()
         
-        crossover_success = False
-        for idx in range(len(self.pipeline)):
-            if rng.random() < 0.5:
+        if not self.more_cx:
+            crossover_success = False
+            for idx in range(len(self.pipeline)):
+                if rng.random() < 0.5:
+                    if self.pipeline[idx].crossover(other.pipeline[idx], rng):
+                        crossover_success = True
+                    
+            return crossover_success
+
+        else:
+            crossover_success = False
+            for idx in range(len(self.pipeline)):
                 if self.pipeline[idx].crossover(other.pipeline[idx], rng):
                     crossover_success = True
-                
-        return crossover_success
+                    
+            return crossover_success
+
     
     def export_pipeline(self):
         return sklearn.pipeline.make_pipeline(*[step.export_pipeline() for step in self.pipeline])
@@ -119,13 +130,14 @@ class SequentialPipelineIndividual(SklearnIndividual):
 
 
 class SequentialPipeline(SklearnIndividualGenerator):
-    def __init__(self, search_spaces : List[SklearnIndividualGenerator], more_mutate=False) -> None:
+    def __init__(self, search_spaces : List[SklearnIndividualGenerator], more_mutate=False, more_cx=False) -> None:
         """
         Takes in a list of search spaces. will produce a pipeline of Sequential length. Each step in the pipeline will correspond to the the search space provided in the same index.
         """
         
         self.search_spaces = search_spaces
         self.more_mutate = more_mutate
+        self.more_cx = more_cx
 
     def generate(self, rng=None):
-        return SequentialPipelineIndividual(self.search_spaces, more_mutate=self.more_mutate, rng=rng)
+        return SequentialPipelineIndividual(self.search_spaces, more_mutate=self.more_mutate, more_cx=self.more_cx, rng=rng)
