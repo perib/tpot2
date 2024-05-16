@@ -474,7 +474,7 @@ class GraphPipelineIndividual(SklearnIndividual):
 
     def _crossover_nodes(self, G2, rng=None):
         '''
-        Swaps the hyperparamters of one randomly chosen node in Parent1 with the hyperparameters of randnomly chosen node in Parent2.
+        Swaps the hyperparamters of one randomly chosen node in Parent1 with the hyperparameters of randomly chosen node in Parent2.
         '''
         rng = np.random.default_rng(rng)
 
@@ -500,7 +500,7 @@ class GraphPipelineIndividual(SklearnIndividual):
                 
             #if both nodes are inner nodes
             if len(list(self.graph.successors(node1)))>0 and len(list(G2.graph.successors(node2)))>0:
-                if len(list(self.graph.predecessors(node1)))>0 and len(list(G2.graph.predecessors(node2))):
+                if len(list(self.graph.predecessors(node1)))>0 and len(list(G2.graph.predecessors(node2)))>0:
                     if node1.crossover(node2):
                         cross_successful = True
                         if not self.more_cx:
@@ -809,6 +809,8 @@ class GraphPipeline(SklearnIndividualGenerator):
             for _ in range(n_nodes-1):
                 func = rng.choice(starting_ops)
                 func(rng=rng)
+
+        ind._merge_duplicated_nodes()
 
         return ind
     
