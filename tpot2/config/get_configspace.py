@@ -26,7 +26,7 @@ from ConfigSpace import ConfigurationSpace, Integer, Float, Categorical, Normal
 from tpot2.builtin_modules import genetic_encoders, feature_encoding_frequency_selector
 from tpot2.builtin_modules import AddTransformer, mul_neg_1_Transformer, MulTransformer, SafeReciprocalTransformer, EQTransformer, NETransformer, GETransformer, GTTransformer, LETransformer, LTTransformer, MinTransformer, MaxTransformer, ZeroTransformer, OneTransformer, NTransformer
 from tpot2.builtin_modules.genetic_encoders import DominantEncoder, RecessiveEncoder, HeterosisEncoder, UnderDominanceEncoder, OverDominanceEncoder 
-from tpot2.builtin_modules import ZeroCount, ColumnOneHotEncoder
+from tpot2.builtin_modules import ZeroCount, ColumnOneHotEncoder, PassKBinsDiscretizer
 from tpot2.builtin_modules import Passthrough
 from sklearn.linear_model import SGDClassifier, LogisticRegression, SGDRegressor, Ridge, Lasso, ElasticNet, Lars, LassoLars, LassoLarsCV, RidgeCV, ElasticNetCV, PassiveAggressiveClassifier, ARDRegression
 from sklearn.ensemble import BaggingClassifier, RandomForestClassifier, ExtraTreesClassifier, GradientBoostingClassifier, ExtraTreesRegressor, ExtraTreesClassifier, AdaBoostRegressor, AdaBoostClassifier, GradientBoostingRegressor,RandomForestRegressor, BaggingRegressor, ExtraTreesRegressor, HistGradientBoostingClassifier, HistGradientBoostingRegressor
@@ -55,6 +55,7 @@ all_methods = [SGDClassifier, RandomForestClassifier, ExtraTreesClassifier, Grad
                DominantEncoder, RecessiveEncoder, HeterosisEncoder, UnderDominanceEncoder, OverDominanceEncoder,
                GaussianProcessClassifier, BaggingClassifier,LGBMRegressor,
                Passthrough,
+               PassKBinsDiscretizer,
                ]
 
 
@@ -117,7 +118,7 @@ GROUPNAMES = {
         "regressors" : ["LGBMRegressor", 'AdaBoostRegressor', "ARDRegression", 'DecisionTreeRegressor', 'ExtraTreesRegressor', 'HistGradientBoostingRegressor', 'KNeighborsRegressor',  'LinearSVR', "MLPRegressor", 'RandomForestRegressor', 'SGDRegressor', 'SVR', 'XGBRegressor'],
         
         
-        "transformers":  ["Binarizer", "PCA", "ZeroCount", "ColumnOneHotEncoder", "FastICA", "FeatureAgglomeration", "Nystroem", "RBFSampler", "QuantileTransformer", "PowerTransformer"],
+        "transformers":  ["PassKBinsDiscretizer", "Binarizer", "PCA", "ZeroCount", "ColumnOneHotEncoder", "FastICA", "FeatureAgglomeration", "Nystroem", "RBFSampler", "QuantileTransformer", "PowerTransformer"],
         "scalers": ["MinMaxScaler", "RobustScaler", "StandardScaler", "MaxAbsScaler", "Normalizer", ],
         "all_transformers" : ["transformers", "scalers"],
 
@@ -132,7 +133,7 @@ GROUPNAMES = {
 
 
 
-def get_configspace(name, n_classes=3, n_samples=100, n_features=100, random_state=None):
+def get_configspace(name, n_classes=3, n_samples=1000, n_features=100, random_state=None):
     match name:
 
         #autoqtl_builtins.py
@@ -158,7 +159,7 @@ def get_configspace(name, n_classes=3, n_samples=100, n_features=100, random_sta
         case "AdaBoostClassifier":
             return classifiers.get_AdaBoostClassifier_ConfigurationSpace(random_state=random_state)
         case "LogisticRegression":
-            return classifiers.get_LogisticRegression_ConfigurationSpace(n_samples=n_samples, n_features=n_features, random_state=random_state)
+            return classifiers.get_LogisticRegression_ConfigurationSpace(random_state=random_state)
         case "KNeighborsClassifier":
             return classifiers.get_KNeighborsClassifier_ConfigurationSpace(n_samples=n_samples)
         case "DecisionTreeClassifier":
@@ -168,11 +169,11 @@ def get_configspace(name, n_classes=3, n_samples=100, n_features=100, random_sta
         case "LinearSVC":
             return classifiers.get_LinearSVC_ConfigurationSpace(random_state=random_state)
         case "RandomForestClassifier":
-            return classifiers.get_RandomForestClassifier_ConfigurationSpace(n_features=n_features, random_state=random_state)
+            return classifiers.get_RandomForestClassifier_ConfigurationSpace(random_state=random_state)
         case "GradientBoostingClassifier":
-            return classifiers.get_GradientBoostingClassifier_ConfigurationSpace(n_classes=n_classes, n_features=n_features, random_state=random_state)
+            return classifiers.get_GradientBoostingClassifier_ConfigurationSpace(n_classes=n_classes, random_state=random_state)
         case "HistGradientBoostingClassifier":
-            return classifiers.get_HistGradientBoostingClassifier_ConfigurationSpace(n_features=n_features, random_state=random_state)
+            return classifiers.get_HistGradientBoostingClassifier_ConfigurationSpace(random_state=random_state)
         case "XGBClassifier":
             return classifiers.get_XGBClassifier_ConfigurationSpace(random_state=random_state)
         case "LGBMClassifier":
@@ -232,7 +233,7 @@ def get_configspace(name, n_classes=3, n_samples=100, n_features=100, random_sta
         case "Perceptron":
             return regressors.get_Perceptron_ConfigurationSpace(random_state=random_state)
         case "DecisionTreeRegressor":
-            return regressors.get_DecisionTreeRegressor_ConfigurationSpace(n_features=n_features, random_state=random_state)
+            return regressors.get_DecisionTreeRegressor_ConfigurationSpace(random_state=random_state)
         case "LinearSVR":
             return regressors.get_LinearSVR_ConfigurationSpace(random_state=random_state)
         case "SVR":
@@ -244,9 +245,9 @@ def get_configspace(name, n_classes=3, n_samples=100, n_features=100, random_sta
         case "ExtraTreesRegressor":
             return regressors.get_ExtraTreesRegressor_ConfigurationSpace(random_state=random_state)
         case "GradientBoostingRegressor":
-            return regressors.get_GradientBoostingRegressor_ConfigurationSpace(n_features=n_features, random_state=random_state)
+            return regressors.get_GradientBoostingRegressor_ConfigurationSpace(random_state=random_state)
         case "HistGradientBoostingRegressor":
-            return regressors.get_HistGradientBoostingRegressor_ConfigurationSpace(n_features=n_features, random_state=random_state)
+            return regressors.get_HistGradientBoostingRegressor_ConfigurationSpace(random_state=random_state)
         case "MLPRegressor":
             return regressors.get_MLPRegressor_ConfigurationSpace(random_state=random_state)
         case "KNeighborsRegressor":
@@ -291,6 +292,8 @@ def get_configspace(name, n_classes=3, n_samples=100, n_features=100, random_sta
             return transformers.PolynomialFeatures_configspace
         case "StandardScaler":
             return {}
+        case "PassKBinsDiscretizer":
+            return transformers.get_passkbinsdiscretizer_configspace(random_state=random_state)
 
         #selectors.py
         case "SelectFwe":

@@ -6,9 +6,7 @@ import numpy as np
 import sklearn
 
 
-def get_LogisticRegression_ConfigurationSpace(n_samples, n_features, random_state):
-    
-    dual = n_samples<=n_features
+def get_LogisticRegression_ConfigurationSpace(random_state):
 
     dual = FALSE_SPECIAL_STRING
 
@@ -80,7 +78,7 @@ def get_DecisionTreeClassifier_ConfigurationSpace(n_featues, random_state):
 
     space = {
         'criterion': Categorical("criterion", ['gini', 'entropy']),
-        'max_depth': Integer("max_depth", bounds=(1, 2*n_featues)), #max of 20? log scale?
+        'max_depth': Integer("max_depth", bounds=(1, min(20,2*n_featues))), #max of 20? log scale?
         'min_samples_split': Integer("min_samples_split", bounds=(1, 20)),
         'min_samples_leaf': Integer("min_samples_leaf", bounds=(1, 20)),
         'max_features': Categorical("max_features", [NONE_SPECIAL_STRING, 'sqrt', 'log2']),
@@ -145,10 +143,10 @@ def get_SVC_ConfigurationSpace(random_state):
     return cs
 
 
-def get_RandomForestClassifier_ConfigurationSpace(n_features, random_state):
+def get_RandomForestClassifier_ConfigurationSpace( random_state):
     space = {
             'n_estimators': 128, #as recommended by Oshiro et al. (2012
-            'max_features': Integer("max_features", bounds=(1, max(1, n_features))), #log scale like autosklearn?
+            'max_features': Float("max_features", bounds=(0.01,1)), #log scale like autosklearn?
             'criterion': Categorical("criterion", ['gini', 'entropy']),
             'min_samples_split': Integer("min_samples_split", bounds=(2, 20)),
             'min_samples_leaf': Integer("min_samples_leaf", bounds=(1, 20)),
@@ -211,7 +209,7 @@ def get_ExtraTreesClassifier_ConfigurationSpace(random_state):
     space = {
             'n_estimators': 100,
             'criterion': Categorical("criterion", ["gini", "entropy"]),
-            'max_features': Float("max_features", bounds=(0.05, 1.00)),
+            'max_features': Float("max_features", bounds=(0.01, 1.00)),
             'min_samples_split': Integer("min_samples_split", bounds=(2, 20)),
             'min_samples_leaf': Integer("min_samples_leaf", bounds=(1, 20)),
             'bootstrap': Categorical("bootstrap", [True, False]),
@@ -333,7 +331,7 @@ def get_LinearDiscriminantAnalysis_ConfigurationSpace():
 
 #### Gradient Boosting Classifiers
 
-def get_GradientBoostingClassifier_ConfigurationSpace(n_classes, n_features, random_state):
+def get_GradientBoostingClassifier_ConfigurationSpace(n_classes, random_state):
     early_stop = Categorical("early_stop", ["off", "valid", "train"])
     n_iter_no_change = Integer("n_iter_no_change",bounds=(1,20))
     validation_fraction = Float("validation_fraction", bounds=(0.01, 0.4))
@@ -346,9 +344,9 @@ def get_GradientBoostingClassifier_ConfigurationSpace(n_classes, n_features, ran
         'min_samples_leaf': Integer("min_samples_leaf", bounds=(1, 200)),
         'min_samples_split': Integer("min_samples_split", bounds=(2, 20)),
         'subsample': Float("subsample", bounds=(0.1, 1.0)),
-        'max_features': Integer("max_features", bounds=(1, max(1, n_features))),
+        'max_features': Float("max_features", bounds=(0.01, 1.00)),
         'max_leaf_nodes': Integer("max_leaf_nodes", bounds=(3, 2047)),
-        'max_depth': Integer("max_depth", bounds=(1, 2*n_features)),
+        'max_depth':NONE_SPECIAL_STRING,   # 'max_depth': Integer("max_depth", bounds=(1, 2*n_features)),
         'tol': 1e-4,
     }
 
@@ -388,10 +386,18 @@ def GradientBoostingClassifier_hyperparameter_parser(params):
         final_params['n_iter_no_change'] = None
         final_params['validation_fraction'] = None
     elif params['early_stop'] == 'valid':
-        final_params['n_iter_no_change'] = params['n_iter_no_change']
-        final_params['validation_fraction'] = params['validation_fraction']
+        #this is required because in crossover, its possible that n_iter_no_change is not in the params
+        if 'n_iter_no_change' not in params:
+            final_params['n_iter_no_change'] = 10
+        else:
+            final_params['n_iter_no_change'] = params['n_iter_no_change']    
+        if 'validation_fraction' not in params:
+            final_params['validation_fraction'] = 0.1
+        else:
+            final_params['validation_fraction'] = params['validation_fraction']
     elif params['early_stop'] == 'train':
-        final_params['n_iter_no_change'] = params['n_iter_no_change']
+        if 'n_iter_no_change' not in params:
+            final_params['n_iter_no_change'] = 10
         final_params['validation_fraction'] = None
 
 
@@ -400,7 +406,7 @@ def GradientBoostingClassifier_hyperparameter_parser(params):
 
 
 #only difference is l2_regularization
-def get_HistGradientBoostingClassifier_ConfigurationSpace(n_features, random_state):
+def get_HistGradientBoostingClassifier_ConfigurationSpace(random_state):
     early_stop = Categorical("early_stop", ["off", "valid", "train"])
     n_iter_no_change = Integer("n_iter_no_change",bounds=(1,20))
     validation_fraction = Float("validation_fraction", bounds=(0.01, 0.4))
@@ -413,7 +419,7 @@ def get_HistGradientBoostingClassifier_ConfigurationSpace(n_features, random_sta
         'min_samples_leaf': Integer("min_samples_leaf", bounds=(1, 200)),
         'max_features': Float("max_features", bounds=(0.1,1.0)), 
         'max_leaf_nodes': Integer("max_leaf_nodes", bounds=(3, 2047)),
-        'max_depth': Integer("max_depth", bounds=(1, 2*n_features)),
+        'max_depth':NONE_SPECIAL_STRING, # 'max_depth': Integer("max_depth", bounds=(1, 2*n_features)),
         'l2_regularization': Float("l2_regularization", bounds=(1e-10, 1), log=True),
         'tol': 1e-4,
     }
@@ -447,16 +453,32 @@ def HistGradientBoostingClassifier_hyperparameter_parser(params):
         final_params['random_state'] = params['random_state']
 
     
+    
     if params['early_stop'] == 'off':
         # final_params['n_iter_no_change'] = 0
         final_params['validation_fraction'] = None
         final_params['early_stopping'] = False
     elif params['early_stop'] == 'valid':
-        final_params['n_iter_no_change'] = params['n_iter_no_change']
-        final_params['validation_fraction'] = params['validation_fraction']
+        
+        #this is required because in crossover, its possible that n_iter_no_change is not in the params
+        if 'n_iter_no_change' not in params:
+            final_params['n_iter_no_change'] = 10
+        else:
+            final_params['n_iter_no_change'] = params['n_iter_no_change']    
+        if 'validation_fraction' not in params:
+            final_params['validation_fraction'] = 0.1
+        else:
+            final_params['validation_fraction'] = params['validation_fraction']
+            
         final_params['early_stopping'] = True
     elif params['early_stop'] == 'train':
-        final_params['n_iter_no_change'] = params['n_iter_no_change']
+        
+        if 'n_iter_no_change' not in params:
+            final_params['n_iter_no_change'] = 10
+        else:
+            final_params['n_iter_no_change'] = params['n_iter_no_change']
+        
+        
         final_params['validation_fraction'] = None
         final_params['early_stopping'] = True
 
